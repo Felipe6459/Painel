@@ -1,12 +1,11 @@
-# Painel
-Painel iptv
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Painel IPTV</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
     body {
@@ -42,70 +41,69 @@ Painel iptv
       font-size: 12px;
     }
 
-    .ativo {
-      background: green;
-    }
-
-    .vencido {
-      background: red;
-    }
-
-    button {
-      padding: 10px;
-      border: none;
-      background: #2563eb;
-      color: white;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #1d4ed8;
-    }
+    .ativo { background: green; }
+    .vencido { background: red; }
   </style>
 </head>
 
 <body>
 
 <header>
-  Painel IPTV - Controle de Clientes
+  Painel IPTV - Clientes
 </header>
 
-<div class="container">
+<div class="container" id="lista"></div>
 
-  <h2>Dashboard</h2>
+<script>
+  const supabaseUrl = "https://nghgqcgsuyyytrpfvfzh.supabase.co";
 
-  <div class="card">
-    <p>Total de Clientes: 0</p>
-    <p>Ativos: 0</p>
-    <p>Vencidos: 0</p>
-  </div>
+  // 🔑 COLE SUA ANON KEY AQUI (obrigatório)
+  const supabaseKey = "COLE_SUA_ANON_KEY_AQUI";
 
-  <h2>Clientes</h2>
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-  <div class="card">
-    <p><strong>Nome:</strong> Exemplo Cliente</p>
-    <p><strong>Plano:</strong> 1 Tela</p>
-    <p><strong>Vencimento:</strong> 20/04/2026</p>
+  async function carregarClientes() {
+    const { data, error } = await supabase
+      .from("clientes")
+      .select("*");
 
-    <span class="status ativo">ATIVO</span>
-  </div>
+    if (error) {
+      console.log("Erro ao buscar clientes:", error);
+      document.getElementById("lista").innerHTML =
+        "<p>Erro ao carregar dados do Supabase</p>";
+      return;
+    }
 
-  <div class="card">
-    <p><strong>Nome:</strong> Cliente Teste</p>
-    <p><strong>Plano:</strong> 2 Telas</p>
-    <p><strong>Vencimento:</strong> 10/04/2026</p>
+    if (!data || data.length === 0) {
+      document.getElementById("lista").innerHTML =
+        "<p>Nenhum cliente encontrado</p>";
+      return;
+    }
 
-    <span class="status vencido">VENCIDO</span>
-  </div>
+    let html = "";
 
-  <br>
+    data.forEach(cliente => {
 
-  <button onclick="alert('Depois vamos conectar no Supabase 🚀')">
-    + Adicionar Cliente
-  </button>
+      let statusClass = cliente.status === "ativo" ? "ativo" : "vencido";
 
-</div>
+      html += `
+        <div class="card">
+          <p><strong>Nome:</strong> ${cliente.nome}</p>
+          <p><strong>Plano:</strong> ${cliente.plano || "N/A"}</p>
+          <p><strong>Vencimento:</strong> ${cliente.data_vencimento || "N/A"}</p>
+
+          <span class="status ${statusClass}">
+            ${cliente.status}
+          </span>
+        </div>
+      `;
+    });
+
+    document.getElementById("lista").innerHTML = html;
+  }
+
+  carregarClientes();
+</script>
 
 </body>
 </html>
