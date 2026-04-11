@@ -43,6 +43,7 @@
 
     .ativo { background: green; }
     .vencido { background: red; }
+    .semdados { background: gray; }
   </style>
 </head>
 
@@ -52,45 +53,65 @@
   Painel IPTV - Clientes
 </header>
 
-<div class="container" id="lista"></div>
+<div class="container" id="lista">
+
+  <!-- estrutura inicial sempre visível -->
+  <div class="card">
+    <p>Carregando clientes...</p>
+  </div>
+
+</div>
 
 <script>
   const supabaseUrl = "https://nghgqcgsuyyytrpfvfzh.supabase.co";
-
-  // 🔑 COLE SUA ANON KEY AQUI (obrigatório)
   const supabaseKey = "COLE_SUA_ANON_KEY_AQUI";
 
   const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
   async function carregarClientes() {
+
     const { data, error } = await supabase
       .from("clientes")
       .select("*");
 
     if (error) {
-      console.log("Erro ao buscar clientes:", error);
-      document.getElementById("lista").innerHTML =
-        "<p>Erro ao carregar dados do Supabase</p>";
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      document.getElementById("lista").innerHTML =
-        "<p>Nenhum cliente encontrado</p>";
+      document.getElementById("lista").innerHTML = `
+        <div class="card">
+          <p>❌ Erro ao conectar no Supabase</p>
+          <p>${error.message}</p>
+        </div>
+      `;
       return;
     }
 
     let html = "";
 
+    // 🔥 se não tiver clientes
+    if (!data || data.length === 0) {
+      html = `
+        <div class="card">
+          <p><strong>Nome:</strong> ---</p>
+          <p><strong>Plano:</strong> ---</p>
+          <p><strong>Vencimento:</strong> ---</p>
+          <span class="status semdados">SEM CLIENTES</span>
+        </div>
+      `;
+
+      document.getElementById("lista").innerHTML = html;
+      return;
+    }
+
+    // 🔥 se tiver clientes
     data.forEach(cliente => {
 
-      let statusClass = cliente.status === "ativo" ? "ativo" : "vencido";
+      let statusClass =
+        cliente.status === "ativo" ? "ativo" : "vencido";
 
       html += `
         <div class="card">
           <p><strong>Nome:</strong> ${cliente.nome}</p>
-          <p><strong>Plano:</strong> ${cliente.plano || "N/A"}</p>
-          <p><strong>Vencimento:</strong> ${cliente.data_vencimento || "N/A"}</p>
+          <p><strong>Plano:</strong> ${cliente.plano || "---"}</p>
+          <p><strong>Vencimento:</strong> ${cliente.data_vencimento || "---"}</p>
 
           <span class="status ${statusClass}">
             ${cliente.status}
