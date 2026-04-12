@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel IPTV</title>
+  <title>Painel IPTV Completo</title>
 
-  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
@@ -44,14 +43,14 @@
 
     .ativo { background: green; }
     .vencido { background: red; }
-    .semdados { background: gray; }
+    .demo { background: orange; }
   </style>
 </head>
 
 <body>
 
 <header>
-  Painel IPTV - Clientes
+  Painel IPTV - Gestão de Clientes
 </header>
 
 <div class="container" id="lista">
@@ -61,9 +60,8 @@
 </div>
 
 <script>
-  // 🌐 CONFIGURAÇÃO SUPABASE
+  // 🌐 SUPABASE CONFIG
   const supabaseUrl = "https://nghgqcgsuyyytrpfvfzh.supabase.co";
-
   const supabaseKey = "sb_publishable_fsnaUk2uQmlq0d5r7MwFnA_FoO-wYkf";
 
   const supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -74,7 +72,7 @@
       .from("clientes")
       .select("*");
 
-    // ❌ ERRO
+    // ❌ erro de conexão
     if (error) {
       document.getElementById("lista").innerHTML = `
         <div class="card">
@@ -85,22 +83,24 @@
       return;
     }
 
-    // 📭 SEM CLIENTES
-    if (!data || data.length === 0) {
-      document.getElementById("lista").innerHTML = `
-        <div class="card">
-          <p><strong>Nome:</strong> ---</p>
-          <p><strong>Plano:</strong> ---</p>
-          <p><strong>Vencimento:</strong> ---</p>
-          <span class="status semdados">SEM CLIENTES</span>
-        </div>
-      `;
-      return;
-    }
-
-    // 📊 CLIENTES ENCONTRADOS
     let html = "";
 
+    // 🧪 CLIENTE FICTÍCIO (caso banco esteja vazio)
+    const clienteFake = {
+      nome: "Cliente Demo",
+      plano: "1 Tela",
+      servidor: "Servidor Teste",
+      assinatura: "Mensal",
+      data_vencimento: "2026-12-31",
+      status: "ativo"
+    };
+
+    // 📭 se não tiver dados no banco
+    if (!data || data.length === 0) {
+      data = [clienteFake];
+    }
+
+    // 📊 montar lista
     data.forEach(cliente => {
 
       let statusClass =
@@ -110,6 +110,8 @@
         <div class="card">
           <p><strong>Nome:</strong> ${cliente.nome}</p>
           <p><strong>Plano:</strong> ${cliente.plano || "---"}</p>
+          <p><strong>Servidor:</strong> ${cliente.servidor || "Padrão"}</p>
+          <p><strong>Assinatura:</strong> ${cliente.assinatura || "Mensal"}</p>
           <p><strong>Vencimento:</strong> ${cliente.data_vencimento || "---"}</p>
 
           <span class="status ${statusClass}">
