@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Painel IPTV</title>
 
+  <!-- SUPABASE -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
@@ -44,6 +45,7 @@
     .ativo { background: green; }
     .vencido { background: red; }
     .semdados { background: gray; }
+    .erro { background: orange; }
   </style>
 </head>
 
@@ -54,16 +56,16 @@
 </header>
 
 <div class="container" id="lista">
-
-  <!-- estrutura inicial sempre visível -->
   <div class="card">
     <p>Carregando clientes...</p>
   </div>
-
 </div>
 
 <script>
+  // 🌐 SUA URL (JÁ DEFINIDA)
   const supabaseUrl = "https://nghgqcgsuyyytrpfvfzh.supabase.co";
+
+  // 🔑 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5naGdxY2dzdXl5eXRycGZ2ZnpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MjU1MTAsImV4cCI6MjA5MTUwMTUxMH0.KCGkmxL36Qr4y2wnoIvQIOr2naN-PAjDy3ejDUq7MQk
   const supabaseKey = "COLE_SUA_ANON_KEY_AQUI";
 
   const supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -74,6 +76,7 @@
       .from("clientes")
       .select("*");
 
+    // ❌ ERRO DE CONEXÃO OU PERMISSÃO
     if (error) {
       document.getElementById("lista").innerHTML = `
         <div class="card">
@@ -84,11 +87,9 @@
       return;
     }
 
-    let html = "";
-
-    // 🔥 se não tiver clientes
+    // 🔥 SEM CLIENTES
     if (!data || data.length === 0) {
-      html = `
+      document.getElementById("lista").innerHTML = `
         <div class="card">
           <p><strong>Nome:</strong> ---</p>
           <p><strong>Plano:</strong> ---</p>
@@ -96,12 +97,12 @@
           <span class="status semdados">SEM CLIENTES</span>
         </div>
       `;
-
-      document.getElementById("lista").innerHTML = html;
       return;
     }
 
-    // 🔥 se tiver clientes
+    // 🔥 MONTAR LISTA DE CLIENTES
+    let html = "";
+
     data.forEach(cliente => {
 
       let statusClass =
