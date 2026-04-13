@@ -33,60 +33,67 @@
       margin-bottom: 10px;
       border-radius: 10px;
     }
+
+    .status {
+      padding: 5px 10px;
+      border-radius: 5px;
+      display: inline-block;
+      font-size: 12px;
+    }
+
+    .ativo { background: green; }
+    .vencido { background: red; }
   </style>
 </head>
 
 <body>
 
-<header>Painel IPTV</header>
+<header>Painel de Clientes</header>
 
 <div class="container" id="lista">
   <div class="card">Carregando clientes...</div>
 </div>
 
 <script>
-  const SUPABASE_URL = "https://nghgqcgsuyyytrpfvfzh.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_fsnaUk2uQmlq0d5r7MwFnA_FoO-wYkf";
+  const supabaseUrl = "https://nghgqcgsuyyytrpfvfzh.supabase.co";
+  const supabaseKey = "sb_publishable_fsnaUk2uQmlq0d5r7MwFnA_FoO-wYkf";
 
-  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const client = supabase.createClient(supabaseUrl, supabaseKey);
 
   async function carregar() {
-    try {
-      const { data, error } = await client
-        .from("clientes")
-        .select("*");
+    const { data, error } = await client
+      .from("clientes")
+      .select("*");
 
-      if (error) {
-        document.getElementById("lista").innerHTML =
-          "<div class='card'>Erro: " + error.message + "</div>";
-        return;
-      }
-
-      if (!data || data.length === 0) {
-        document.getElementById("lista").innerHTML =
-          "<div class='card'>Nenhum cliente encontrado</div>";
-        return;
-      }
-
-      let html = "";
-
-      data.forEach(c => {
-        html += `
-          <div class="card">
-            <p>Nome: ${c.nome}</p>
-            <p>Plano: ${c.plano}</p>
-            <p>Vencimento: ${c.data_vencimento}</p>
-            <p>Status: ${c.status}</p>
-          </div>
-        `;
-      });
-
-      document.getElementById("lista").innerHTML = html;
-
-    } catch (e) {
+    if (error) {
       document.getElementById("lista").innerHTML =
-        "<div class='card'>Erro JS: " + e.message + "</div>";
+        "<div class='card'>Erro: " + error.message + "</div>";
+      return;
     }
+
+    if (!data || data.length === 0) {
+      document.getElementById("lista").innerHTML =
+        "<div class='card'>Nenhum cliente encontrado</div>";
+      return;
+    }
+
+    let html = "";
+
+    data.forEach(c => {
+      html += `
+        <div class="card">
+          <p><strong>Nome:</strong> ${c.nome}</p>
+          <p><strong>WhatsApp:</strong> ${c.whatsapp}</p>
+          <p><strong>Plano:</strong> ${c.plano}</p>
+          <p><strong>Data início:</strong> ${c.data_de_inicio}</p>
+          <p><strong>Vencimento:</strong> ${c.vencimento}</p>
+          <p><strong>Assinatura:</strong> ${c.assinatura}</p>
+          <p><strong>Status:</strong> ${c.status}</p>
+        </div>
+      `;
+    });
+
+    document.getElementById("lista").innerHTML = html;
   }
 
   carregar();
