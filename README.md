@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -55,6 +56,12 @@ async function carregar() {
 
   if (error) {
     document.getElementById("lista").innerHTML = "Erro: " + error.message;
+    console.log(error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById("lista").innerHTML = "Nenhum cliente encontrado";
     return;
   }
 
@@ -64,7 +71,11 @@ async function carregar() {
     html += `
       <div class="card">
         <p><strong>Nome:</strong> ${c.nome}</p>
-        <p><strong>WhatsApp:</strong> ${c.WhatsApp}</p>
+        <p><strong>WhatsApp:</strong> ${c["WhatsApp"]}</p>
+        <p><strong>Plano:</strong> ${c.plano}</p>
+        <p><strong>Início:</strong> ${c.data_de_inicio}</p>
+        <p><strong>Vencimento:</strong> ${c.vencimento}</p>
+        <p><strong>Status:</strong> ${c.status}</p>
       </div>
     `;
   });
