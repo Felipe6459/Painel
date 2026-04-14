@@ -57,6 +57,7 @@ input, button {
 button {
   background: #2563eb;
   color: white;
+  cursor: pointer;
 }
 
 .delete {
@@ -105,8 +106,19 @@ const client = supabase.createClient(supabaseUrl, supabaseKey);
 let chart;
 
 async function carregar() {
-  const { data } = await client.from("Painel ftv").select("*");
+  const { data, error } = await client.from("Painel ftv").select("*");
 
+  if (error) {
+    document.getElementById("lista").innerHTML = error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById("lista").innerHTML = "Nenhum cliente encontrado";
+    return;
+  }
+
+  // CONTADORES
   let total = data.length;
   let ativos = data.filter(c => c.status === "ativo").length;
   let vencidos = data.filter(c => c.status === "vencido").length;
@@ -115,6 +127,7 @@ async function carregar() {
   document.getElementById("ativos").innerText = ativos;
   document.getElementById("vencidos").innerText = vencidos;
 
+  // GRÁFICO
   let planos = {};
   data.forEach(c => {
     planos[c.plano] = (planos[c.plano] || 0) + 1;
@@ -137,6 +150,7 @@ async function carregar() {
     }
   });
 
+  // LISTA
   let html = "";
 
   data.forEach(c => {
@@ -156,7 +170,7 @@ async function carregar() {
 }
 
 async function adicionar() {
-  await client.from("Painel ftv").insert([{
+  const { error } = await client.from("Painel ftv").insert([{
     nome: document.getElementById("nome").value,
     "WhatsApp": document.getElementById("whatsapp").value,
     plano: document.getElementById("plano").value,
@@ -165,6 +179,22 @@ async function adicionar() {
     status: document.getElementById("status").value,
     assinatura: document.getElementById("assinatura").value
   }]);
+
+  if (error) {
+    alert("Erro: " + error.message);
+    console.log(error);
+    return;
+  }
+
+  alert("Cliente adicionado!");
+
+  document.getElementById("nome").value = "";
+  document.getElementById("whatsapp").value = "";
+  document.getElementById("plano").value = "";
+  document.getElementById("inicio").value = "";
+  document.getElementById("vencimento").value = "";
+  document.getElementById("status").value = "";
+  document.getElementById("assinatura").value = "";
 
   carregar();
 }
