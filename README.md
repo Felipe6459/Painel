@@ -9,8 +9,8 @@
 
   <style>
     body {
-      font-family: Arial;
       margin: 0;
+      font-family: Arial;
       background: #0f172a;
       color: white;
     }
@@ -37,8 +37,8 @@
     .status {
       padding: 5px 10px;
       border-radius: 5px;
-      display: inline-block;
       font-size: 12px;
+      display: inline-block;
     }
 
     .ativo { background: green; }
@@ -60,7 +60,7 @@
 
   const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-  async function carregar() {
+  async function carregarClientes() {
     const { data, error } = await client
       .from("clientes")
       .select("*");
@@ -85,10 +85,15 @@
           <p><strong>Nome:</strong> ${c.nome}</p>
           <p><strong>WhatsApp:</strong> ${c.whatsapp}</p>
           <p><strong>Plano:</strong> ${c.plano}</p>
-          <p><strong>Data início:</strong> ${c.data_de_inicio}</p>
+          <p><strong>Início:</strong> ${c.data_de_inicio}</p>
           <p><strong>Vencimento:</strong> ${c.vencimento}</p>
           <p><strong>Assinatura:</strong> ${c.assinatura}</p>
-          <p><strong>Status:</strong> ${c.status}</p>
+          <p>
+            <strong>Status:</strong>
+            <span class="status ${c.status}">
+              ${c.status}
+            </span>
+          </p>
         </div>
       `;
     });
@@ -96,7 +101,7 @@
     document.getElementById("lista").innerHTML = html;
   }
 
-  carregar();
+  carregarClientes();
 </script>
 
 </body>
