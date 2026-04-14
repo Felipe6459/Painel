@@ -62,7 +62,7 @@
 
   async function carregarClientes() {
     const { data, error } = await client
-      .from("clientes")
+      .from("painel_ftv") // 👈 AQUI ESTÁ ATUALIZADO
       .select("*");
 
     if (error) {
