@@ -2,53 +2,30 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Painel IPTV PRO</title>
+<title>Painel IPTV PRO MAX</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body { margin:0; font-family:Arial; background:#0f172a; color:white; }
-
 .login { display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; }
-
-input, button {
-  padding:10px;
-  margin:5px;
-  border:none;
-  border-radius:5px;
-}
-
-button { background:#2563eb; color:white; }
-
+input, button { padding:10px; margin:5px; border:none; border-radius:5px; }
+button { background:#2563eb; color:white; cursor:pointer; }
 header { background:#1e3a8a; padding:20px; text-align:center; }
-
 .container { padding:20px; }
-
 .cards { display:flex; flex-wrap:wrap; gap:10px; }
-
-.box {
-  background:#1e293b;
-  padding:15px;
-  border-radius:10px;
-  flex:1;
-  text-align:center;
-}
-
-.card {
-  background:#1e293b;
-  padding:15px;
-  margin-top:10px;
-  border-radius:10px;
-}
-
+.box { background:#1e293b; padding:15px; border-radius:10px; flex:1; text-align:center; }
+.card { background:#1e293b; padding:15px; margin-top:10px; border-radius:10px; }
 .ativo { border-left:5px solid green; }
 .vencido { border-left:5px solid red; }
 .aviso { border-left:5px solid orange; }
 
-.cobrar { background:green; }
-.delete { background:red; }
-.edit { background:orange; }
+@keyframes piscar {
+  0% { background:red; }
+  50% { background:darkred; }
+  100% { background:red; }
+}
 </style>
 </head>
 
@@ -64,13 +41,16 @@ header { background:#1e3a8a; padding:20px; text-align:center; }
 <div id="painel" style="display:none">
 
 <header>
-Painel IPTV PRO
+Painel IPTV PRO MAX
 <button onclick="sair()">Sair</button>
 </header>
 
 <div class="container">
 
-<!-- DASHBOARD -->
+<div id="alerta" style="display:none; padding:15px; border-radius:10px; text-align:center; margin-bottom:10px; font-weight:bold; animation: piscar 1s infinite;">
+🚨 CLIENTES EM ATRASO!
+</div>
+
 <div class="cards">
   <div class="box">Total<br><span id="total">0</span></div>
   <div class="box">Ativos<br><span id="ativos">0</span></div>
@@ -78,13 +58,14 @@ Painel IPTV PRO
   <div class="box">Vencidos<br><span id="vencidos">0</span></div>
   <div class="box">💰 Receita<br>R$ <span id="receita">0</span></div>
   <div class="box">📅 A Receber<br>R$ <span id="receber">0</span></div>
+  <div class="box">💸 Em atraso<br>R$ <span id="atrasado">0</span></div>
 </div>
 
 <canvas id="grafico"></canvas>
 
 <br>
 
-<button onclick="cobrarTodos()">📲 Cobrar Todos Vencidos</button>
+<button onclick="cobrarAtrasados()">💸 Cobrar Atrasados</button>
 
 <h3>Cadastro</h3>
 
@@ -103,17 +84,21 @@ Painel IPTV PRO
 </div>
 </div>
 
+<audio id="alertaSom" src="https://www.soundjay.com/buttons/sounds/beep-01a.mp3"></audio>
+
 <script>
 const client = supabase.createClient(
   "https://nghgqcgsuyyytrpfvfzh.supabase.co",
   "sb_publishable_fsnaUk2uQmlq0d5r7MwFnA_FoO-wYkf"
 );
 
-const USUARIO = "admin";
-const SENHA = "1234";
+const USUARIO="admin";
+const SENHA="1234";
 
-let dadosClientes = [];
+let dadosClientes=[];
 let chart;
+let editandoId=null;
+let tocou=false;
 
 // LOGIN
 function entrar(){
@@ -150,13 +135,12 @@ function statusCalc(v){
 // CARREGAR
 async function carregar(){
   const { data } = await client.from("Painel ftv").select("*");
-  dadosClientes=data;
+  dadosClientes = data || [];
 
-  let t=0,a=0,v=0,av=0,r=0,rec=0;
-  let planos={};
+  let t=0,a=0,v=0,av=0,r=0,rec=0,atr=0;
   let html="";
 
-  data.forEach(c=>{
+  dadosClientes.forEach(c=>{
     let status=statusCalc(c.vencimento);
 
     t++;
@@ -166,17 +150,17 @@ async function carregar(){
 
     r+=Number(c.valor||0);
     if(status!=="vencido") rec+=Number(c.valor||0);
-
-    planos[c.plano]=(planos[c.plano]||0)+1;
+    if(status==="vencido") atr+=Number(c.valor||0);
 
     html+=`
     <div class="card ${status}">
       <b>${c.nome}</b>
       <p>${c.plano} - R$ ${c.valor}</p>
-      <p>Início: ${c.data_de_inicio || '-'}</p>
       <p>Vence: ${c.vencimento}</p>
-      <button class="delete" onclick="del(${c.id})">Excluir</button>
-      <button class="cobrar" onclick="cobrar('${c.whatsapp}','${c.nome}','${c.vencimento}')">Cobrar</button>
+
+      <button onclick="editar(${c.id})">✏️ Editar</button>
+      <button onclick="pago(${c.id})">✅ Pago</button>
+      <button onclick="del(${c.id})">Excluir</button>
     </div>`;
   });
 
@@ -186,72 +170,92 @@ async function carregar(){
   aviso.innerText=av;
   receita.innerText=r.toFixed(2);
   receber.innerText=rec.toFixed(2);
+  atrasado.innerText=atr.toFixed(2);
 
   lista.innerHTML=html;
 
-  // GRAFICO COLORIDO
-  if(chart) chart.destroy();
-
-  chart=new Chart(document.getElementById("grafico"),{
-    type:"bar",
-    data:{
-      labels:Object.keys(planos),
-      datasets:[{
-        data:Object.values(planos),
-        backgroundColor:[
-          "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#a855f7"
-        ]
-      }]
+  // ALERTA
+  if(atr>0){
+    alerta.style.display="block";
+    if(!tocou){
+      alertaSom.play().catch(()=>{});
+      tocou=true;
     }
-  });
+  } else {
+    alerta.style.display="none";
+    tocou=false;
+  }
 }
 
 // SALVAR
 async function salvar(){
-  await client.from("Painel ftv").insert([{
-    id: Date.now(),
-    nome:nome.value,
-    whatsapp:whatsapp.value,
-    plano:plano.value,
-    valor:parseFloat(valor.value)||0,
-    data_de_inicio:inicio.value,
-    vencimento:vencimento.value
-  }]);
+
+  if(editandoId !== null){
+    await client.from("Painel ftv")
+    .update({
+      nome:nome.value,
+      whatsapp:whatsapp.value,
+      plano:plano.value,
+      valor:parseFloat(valor.value)||0,
+      data_de_inicio:inicio.value,
+      vencimento:vencimento.value
+    })
+    .eq("id", editandoId);
+
+    editandoId = null;
+
+  } else {
+    await client.from("Painel ftv").insert([{
+      id: Date.now(),
+      nome:nome.value,
+      whatsapp:whatsapp.value,
+      plano:plano.value,
+      valor:parseFloat(valor.value)||0,
+      data_de_inicio:inicio.value,
+      vencimento:vencimento.value
+    }]);
+  }
 
   limpar();
   carregar();
 }
 
-// COBRANÇA
-function cobrar(whatsapp,nome,vencimento){
-  let hoje=new Date();
-  let v=new Date(vencimento);
-  let diff=Math.ceil((v-hoje)/(1000*60*60*24));
+// EDITAR (CORRIGIDO)
+function editar(id){
+  let c = dadosClientes.find(x => Number(x.id) === Number(id));
 
-  let msg="";
-  if(diff<0) msg=`🚨 ${nome}, seu plano venceu (${vencimento}).`;
-  else if(diff===0) msg=`⚠️ ${nome}, vence hoje!`;
-  else if(diff<=2) msg=`🔔 ${nome}, está para vencer.`;
-  else msg=`🙂 ${nome}, lembrete de vencimento.`;
-
-  let num=whatsapp.replace(/\D/g,'');
-  window.open(`https://wa.me/55${num}?text=${encodeURIComponent(msg)}`);
-}
-
-// COBRAR TODOS
-function cobrarTodos(){
-  let lista = dadosClientes.filter(c=>statusCalc(c.vencimento)==="vencido");
-  let i=0;
-
-  function enviar(){
-    if(i>=lista.length) return;
-    let c=lista[i];
-    cobrar(c.whatsapp,c.nome,c.vencimento);
-    i++;
-    setTimeout(enviar,1500);
+  if(!c){
+    alert("Erro ao carregar cliente");
+    return;
   }
 
-  enviar();
+  nome.value = c.nome || "";
+  whatsapp.value = c.whatsapp || "";
+  plano.value = c.plano || "";
+  valor.value = c.valor || "";
+  inicio.value = c.data_de_inicio || "";
+  vencimento.value = c.vencimento || "";
+
+  editandoId = c.id;
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// PAGO
+async function pago(id){
+  let c = dadosClientes.find(x => Number(x.id) === Number(id));
+  if(!c) return;
+
+  let novaData = new Date(c.vencimento);
+  novaData.setDate(novaData.getDate()+30);
+
+  let formatada = novaData.toISOString().split("T")[0];
+
+  await client.from("Painel ftv")
+  .update({ vencimento: formatada })
+  .eq("id", id);
+
+  carregar();
 }
 
 // EXCLUIR
