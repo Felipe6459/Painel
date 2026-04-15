@@ -40,7 +40,7 @@ header {
   text-align: center;
 }
 
-input, select, button {
+input, button {
   padding: 10px;
   margin: 5px;
   border-radius: 5px;
@@ -123,11 +123,15 @@ function calcularStatus(dataVencimento) {
 async function carregar() {
   const busca = document.getElementById("busca").value.toLowerCase();
 
-  const { data } = await client.from("Painel ftv").select("*");
+  const { data, error } = await client.from("Painel ftv").select("*");
+
+  if (error) {
+    document.getElementById("lista").innerHTML = error.message;
+    return;
+  }
 
   let total = 0, ativos = 0, vencidos = 0, aviso = 0;
   let planos = {};
-
   let html = "";
 
   data.forEach(c => {
@@ -176,14 +180,42 @@ async function carregar() {
 }
 
 async function adicionar() {
-  await client.from("Painel ftv").insert([{
-    nome: document.getElementById("nome").value,
-    whatsapp: document.getElementById("whatsapp").value,
-    plano: document.getElementById("plano").value,
-    data_de_inicio: document.getElementById("inicio").value,
-    vencimento: document.getElementById("vencimento").value,
-    assinatura: document.getElementById("assinatura").value
+  const nome = document.getElementById("nome").value;
+  const whatsapp = document.getElementById("whatsapp").value;
+  const plano = document.getElementById("plano").value;
+  const inicio = document.getElementById("inicio").value;
+  const vencimento = document.getElementById("vencimento").value;
+  const assinatura = document.getElementById("assinatura").value;
+
+  if (!nome || !whatsapp || !plano || !inicio || !vencimento) {
+    alert("Preencha todos os campos!");
+    return;
+  }
+
+  const { error } = await client.from("Painel ftv").insert([{
+    nome: nome,
+    whatsapp: whatsapp,
+    plano: plano,
+    data_de_inicio: inicio,
+    vencimento: vencimento,
+    status: "ativo",
+    assinatura: assinatura
   }]);
+
+  if (error) {
+    alert("Erro ao salvar: " + error.message);
+    console.log(error);
+    return;
+  }
+
+  alert("Cliente salvo com sucesso!");
+
+  document.getElementById("nome").value = "";
+  document.getElementById("whatsapp").value = "";
+  document.getElementById("plano").value = "";
+  document.getElementById("inicio").value = "";
+  document.getElementById("vencimento").value = "";
+  document.getElementById("assinatura").value = "";
 
   carregar();
 }
