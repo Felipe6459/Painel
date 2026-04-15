@@ -193,6 +193,7 @@ async function adicionar() {
   }
 
   const { error } = await client.from("Painel ftv").insert([{
+    id: Date.now(), // 🔥 CORREÇÃO DO ERRO
     nome: nome,
     whatsapp: whatsapp,
     plano: plano,
