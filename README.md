@@ -5,17 +5,12 @@
 <title>Painel IPTV PRO</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body { margin:0; font-family:Arial; background:#0f172a; color:white; }
 
-.login {
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-  flex-direction:column;
-}
+.login { display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; }
 
 input, button {
   padding:10px;
@@ -24,15 +19,21 @@ input, button {
   border-radius:5px;
 }
 
-button { background:#2563eb; color:white; cursor:pointer; }
+button { background:#2563eb; color:white; }
 
-header {
-  background:#1e3a8a;
-  padding:20px;
-  text-align:center;
-}
+header { background:#1e3a8a; padding:20px; text-align:center; }
 
 .container { padding:20px; }
+
+.cards { display:flex; flex-wrap:wrap; gap:10px; }
+
+.box {
+  background:#1e293b;
+  padding:15px;
+  border-radius:10px;
+  flex:1;
+  text-align:center;
+}
 
 .card {
   background:#1e293b;
@@ -45,15 +46,14 @@ header {
 .vencido { border-left:5px solid red; }
 .aviso { border-left:5px solid orange; }
 
+.cobrar { background:green; }
 .delete { background:red; }
 .edit { background:orange; }
-.cobrar { background:green; }
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
 <div id="login" class="login">
   <h2>Login</h2>
   <input id="user" placeholder="Usuário">
@@ -61,7 +61,6 @@ header {
   <button onclick="entrar()">Entrar</button>
 </div>
 
-<!-- PAINEL -->
 <div id="painel" style="display:none">
 
 <header>
@@ -71,21 +70,32 @@ Painel IPTV PRO
 
 <div class="container">
 
+<!-- DASHBOARD -->
+<div class="cards">
+  <div class="box">Total<br><span id="total">0</span></div>
+  <div class="box">Ativos<br><span id="ativos">0</span></div>
+  <div class="box">Vencendo<br><span id="aviso">0</span></div>
+  <div class="box">Vencidos<br><span id="vencidos">0</span></div>
+  <div class="box">💰 Receita<br>R$ <span id="receita">0</span></div>
+  <div class="box">📅 A Receber<br>R$ <span id="receber">0</span></div>
+</div>
+
+<canvas id="grafico"></canvas>
+
+<br>
+
 <button onclick="cobrarTodos()">📲 Cobrar Todos Vencidos</button>
 
-<h3>Cadastro de Cliente</h3>
+<h3>Cadastro</h3>
 
-<input id="nome" placeholder="Nome do Cliente">
+<input id="nome" placeholder="Nome">
 <input id="whatsapp" placeholder="WhatsApp">
-<input id="plano" placeholder="Plano (ex: 1 tela)">
-<input id="valor" type="number" placeholder="Valor (R$)">
+<input id="plano" placeholder="Plano">
+<input id="valor" type="number" placeholder="Valor">
 <br>
-<label>Data de Início:</label>
 <input type="date" id="inicio">
-<label>Vencimento:</label>
 <input type="date" id="vencimento">
 
-<br>
 <button onclick="salvar()">Salvar</button>
 
 <div id="lista"></div>
@@ -103,35 +113,34 @@ const USUARIO = "admin";
 const SENHA = "1234";
 
 let dadosClientes = [];
+let chart;
 
 // LOGIN
-function entrar() {
-  if (user.value === USUARIO && pass.value === SENHA) {
-    localStorage.setItem("logado", "sim");
+function entrar(){
+  if(user.value===USUARIO && pass.value===SENHA){
+    localStorage.setItem("logado","sim");
     mostrar();
-  } else {
-    alert("Login inválido");
-  }
+  } else alert("Login inválido");
 }
 
-function sair() {
+function sair(){
   localStorage.removeItem("logado");
   location.reload();
 }
 
-function mostrar() {
-  login.style.display = "none";
-  painel.style.display = "block";
+function mostrar(){
+  login.style.display="none";
+  painel.style.display="block";
   carregar();
 }
 
-if (localStorage.getItem("logado") === "sim") mostrar();
+if(localStorage.getItem("logado")==="sim") mostrar();
 
 // STATUS
 function statusCalc(v){
-  let hoje = new Date();
-  let d = new Date(v);
-  let diff = Math.ceil((d-hoje)/(1000*60*60*24));
+  let hoje=new Date();
+  let d=new Date(v);
+  let diff=Math.ceil((d-hoje)/(1000*60*60*24));
 
   if(diff<0) return "vencido";
   if(diff<=2) return "aviso";
@@ -141,12 +150,24 @@ function statusCalc(v){
 // CARREGAR
 async function carregar(){
   const { data } = await client.from("Painel ftv").select("*");
-  dadosClientes = data;
+  dadosClientes=data;
 
+  let t=0,a=0,v=0,av=0,r=0,rec=0;
+  let planos={};
   let html="";
 
   data.forEach(c=>{
-    let status = statusCalc(c.vencimento);
+    let status=statusCalc(c.vencimento);
+
+    t++;
+    if(status==="ativo") a++;
+    if(status==="vencido") v++;
+    if(status==="aviso") av++;
+
+    r+=Number(c.valor||0);
+    if(status!=="vencido") rec+=Number(c.valor||0);
+
+    planos[c.plano]=(planos[c.plano]||0)+1;
 
     html+=`
     <div class="card ${status}">
@@ -154,29 +175,88 @@ async function carregar(){
       <p>${c.plano} - R$ ${c.valor}</p>
       <p>Início: ${c.data_de_inicio || '-'}</p>
       <p>Vence: ${c.vencimento}</p>
-
-      <button class="edit" onclick="editar(${c.id})">Editar</button>
       <button class="delete" onclick="del(${c.id})">Excluir</button>
       <button class="cobrar" onclick="cobrar('${c.whatsapp}','${c.nome}','${c.vencimento}')">Cobrar</button>
     </div>`;
   });
 
-  lista.innerHTML = html;
+  total.innerText=t;
+  ativos.innerText=a;
+  vencidos.innerText=v;
+  aviso.innerText=av;
+  receita.innerText=r.toFixed(2);
+  receber.innerText=rec.toFixed(2);
+
+  lista.innerHTML=html;
+
+  // GRAFICO COLORIDO
+  if(chart) chart.destroy();
+
+  chart=new Chart(document.getElementById("grafico"),{
+    type:"bar",
+    data:{
+      labels:Object.keys(planos),
+      datasets:[{
+        data:Object.values(planos),
+        backgroundColor:[
+          "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#a855f7"
+        ]
+      }]
+    }
+  });
 }
 
 // SALVAR
 async function salvar(){
   await client.from("Painel ftv").insert([{
     id: Date.now(),
-    nome: nome.value,
-    whatsapp: whatsapp.value,
-    plano: plano.value,
-    valor: parseFloat(valor.value) || 0,
-    data_de_inicio: inicio.value,
-    vencimento: vencimento.value
+    nome:nome.value,
+    whatsapp:whatsapp.value,
+    plano:plano.value,
+    valor:parseFloat(valor.value)||0,
+    data_de_inicio:inicio.value,
+    vencimento:vencimento.value
   }]);
 
   limpar();
+  carregar();
+}
+
+// COBRANÇA
+function cobrar(whatsapp,nome,vencimento){
+  let hoje=new Date();
+  let v=new Date(vencimento);
+  let diff=Math.ceil((v-hoje)/(1000*60*60*24));
+
+  let msg="";
+  if(diff<0) msg=`🚨 ${nome}, seu plano venceu (${vencimento}).`;
+  else if(diff===0) msg=`⚠️ ${nome}, vence hoje!`;
+  else if(diff<=2) msg=`🔔 ${nome}, está para vencer.`;
+  else msg=`🙂 ${nome}, lembrete de vencimento.`;
+
+  let num=whatsapp.replace(/\D/g,'');
+  window.open(`https://wa.me/55${num}?text=${encodeURIComponent(msg)}`);
+}
+
+// COBRAR TODOS
+function cobrarTodos(){
+  let lista = dadosClientes.filter(c=>statusCalc(c.vencimento)==="vencido");
+  let i=0;
+
+  function enviar(){
+    if(i>=lista.length) return;
+    let c=lista[i];
+    cobrar(c.whatsapp,c.nome,c.vencimento);
+    i++;
+    setTimeout(enviar,1500);
+  }
+
+  enviar();
+}
+
+// EXCLUIR
+async function del(id){
+  await client.from("Painel ftv").delete().eq("id",id);
   carregar();
 }
 
@@ -188,64 +268,6 @@ function limpar(){
   valor.value="";
   inicio.value="";
   vencimento.value="";
-}
-
-// EXCLUIR
-async function del(id){
-  await client.from("Painel ftv").delete().eq("id",id);
-  carregar();
-}
-
-// EDITAR
-function editar(id){
-  alert("Edite os dados manualmente e salve novamente");
-}
-
-// COBRAR INDIVIDUAL
-function cobrar(whatsapp, nome, vencimento){
-  let hoje = new Date();
-  let v = new Date(vencimento);
-  let diff = Math.ceil((v-hoje)/(1000*60*60*24));
-
-  let msg="";
-
-  if(diff<0){
-    msg=`🚨 Olá ${nome}, seu plano venceu (${vencimento}). Regularize para evitar bloqueio.`;
-  } else if(diff===0){
-    msg=`⚠️ Olá ${nome}, seu plano vence hoje (${vencimento}).`;
-  } else if(diff<=2){
-    msg=`🔔 Olá ${nome}, seu plano está próximo do vencimento (${vencimento}).`;
-  } else {
-    msg=`🙂 Olá ${nome}, seu plano vence em breve (${vencimento}).`;
-  }
-
-  let num = whatsapp.replace(/\D/g,'');
-  window.open(`https://wa.me/55${num}?text=${encodeURIComponent(msg)}`);
-}
-
-// COBRAR TODOS (COM DELAY)
-function cobrarTodos(){
-  let lista = dadosClientes.filter(c => statusCalc(c.vencimento) === "vencido");
-
-  if(lista.length === 0){
-    alert("Nenhum cliente vencido");
-    return;
-  }
-
-  let i = 0;
-
-  function enviar(){
-    if(i >= lista.length) return;
-
-    let c = lista[i];
-
-    cobrar(c.whatsapp, c.nome, c.vencimento);
-
-    i++;
-    setTimeout(enviar, 1500);
-  }
-
-  enviar();
 }
 </script>
 
