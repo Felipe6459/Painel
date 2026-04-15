@@ -27,7 +27,11 @@ input, button {
 
 button { background:#2563eb; color:white; cursor:pointer; }
 
-header { background:#1e3a8a; padding:20px; text-align:center; }
+header {
+  background:#1e3a8a;
+  padding:20px;
+  text-align:center;
+}
 
 .container { padding:20px; }
 
@@ -108,7 +112,8 @@ Painel IPTV PRO++
 </div>
 
 <script>
-const supabase = window.supabase.createClient(
+// 🔥 CORRIGIDO
+const client = supabase.createClient(
   "https://nghgqcgsuyyytrpfvfzh.supabase.co",
   "sb_publishable_fsnaUk2uQmlq0d5r7MwFnA_FoO-wYkf"
 );
@@ -136,6 +141,7 @@ function mostrarPainel() {
   carregar();
 }
 
+// manter login
 if (localStorage.getItem("logado") === "sim") {
   mostrarPainel();
 }
@@ -153,20 +159,25 @@ function statusCalc(v) {
 
 // CARREGAR
 async function carregar() {
-  const { data } = await supabase.from("Painel ftv").select("*");
+  const { data, error } = await client.from("Painel ftv").select("*");
 
-  let html="", total=0, ativos=0, vencidos=0, aviso=0, receita=0, receber=0;
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  let html="", t=0, a=0, v=0, av=0, r=0, rec=0;
 
   data.forEach(c=>{
     let status = statusCalc(c.vencimento);
 
-    total++;
-    if(status==="ativo") ativos++;
-    if(status==="vencido") vencidos++;
-    if(status==="aviso") aviso++;
+    t++;
+    if(status==="ativo") a++;
+    if(status==="vencido") v++;
+    if(status==="aviso") av++;
 
-    receita += Number(c.valor || 0);
-    if(status!=="vencido") receber += Number(c.valor || 0);
+    r += Number(c.valor || 0);
+    if(status!=="vencido") rec += Number(c.valor || 0);
 
     html+=`
     <div class="card ${status}">
@@ -178,14 +189,14 @@ async function carregar() {
     </div>`;
   });
 
-  total.innerText=total;
-  ativos.innerText=ativos;
-  vencidos.innerText=vencidos;
-  aviso.innerText=aviso;
-  receita.innerText=receita.toFixed(2);
-  receber.innerText=receber.toFixed(2);
+  document.getElementById("total").innerText=t;
+  document.getElementById("ativos").innerText=a;
+  document.getElementById("vencidos").innerText=v;
+  document.getElementById("aviso").innerText=av;
+  document.getElementById("receita").innerText=r.toFixed(2);
+  document.getElementById("receber").innerText=rec.toFixed(2);
 
-  lista.innerHTML=html;
+  document.getElementById("lista").innerHTML=html;
 }
 
 // SALVAR
@@ -200,13 +211,21 @@ async function salvar() {
     vencimento: vencimento.value
   };
 
+  if (!dados.nome || !dados.whatsapp || !dados.plano || !dados.vencimento) {
+    alert("Preencha os campos obrigatórios!");
+    return;
+  }
+
   const { error } = editandoId
-    ? await supabase.from("Painel ftv").update(dados).eq("id",editandoId)
-    : await supabase.from("Painel ftv").insert([dados]);
+    ? await client.from("Painel ftv").update(dados).eq("id",editandoId)
+    : await client.from("Painel ftv").insert([dados]);
 
-  if(error){ alert(error.message); return; }
+  if(error){
+    alert("Erro: "+error.message);
+    return;
+  }
 
-  alert("Salvo!");
+  alert("Salvo com sucesso!");
   editandoId=null;
   limpar();
   carregar();
@@ -220,7 +239,7 @@ function editar(id){
 
 // EXCLUIR
 async function del(id){
-  await supabase.from("Painel ftv").delete().eq("id",id);
+  await client.from("Painel ftv").delete().eq("id",id);
   carregar();
 }
 
