@@ -30,7 +30,7 @@ input, button {
   border-radius:5px;
 }
 
-button { background:#2563eb; color:white; }
+button { background:#2563eb; color:white; cursor:pointer; }
 
 .card {
   background:#1e293b;
@@ -68,7 +68,7 @@ button { background:#2563eb; color:white; }
 <h3>Buscar</h3>
 <input id="busca" oninput="carregar()" placeholder="Nome...">
 
-<h3>Adicionar Cliente</h3>
+<h3>Adicionar / Editar Cliente</h3>
 
 <input id="nome" placeholder="Nome">
 <input id="whatsapp" placeholder="WhatsApp">
@@ -77,7 +77,7 @@ button { background:#2563eb; color:white; }
 <input type="date" id="inicio">
 <input type="date" id="vencimento">
 
-<button onclick="adicionar()">Adicionar</button>
+<button onclick="adicionar()">Salvar</button>
 
 <h3>Clientes</h3>
 <div id="lista"></div>
@@ -105,7 +105,12 @@ function statusCalc(v) {
 
 async function carregar() {
   const busca = document.getElementById("busca").value.toLowerCase();
-  const { data } = await client.from("Painel ftv").select("*");
+  const { data, error } = await client.from("Painel ftv").select("*");
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
 
   let total=0, ativos=0, vencidos=0, aviso=0;
   let receita=0, receber=0;
@@ -154,40 +159,53 @@ async function carregar() {
 
   chart=new Chart(document.getElementById("grafico"),{
     type:"bar",
-    data:{ labels:Object.keys(planos),
-    datasets:[{ data:Object.values(planos)}]}
+    data:{
+      labels:Object.keys(planos),
+      datasets:[{ data:Object.values(planos) }]
+    }
   });
 }
 
 async function adicionar() {
   const dados={
-    id: Date.now(),
+    id: editandoId || Date.now(),
     nome: nome.value,
     whatsapp: whatsapp.value,
     plano: plano.value,
-    valor: Number(valor.value),
+    valor: valor.value ? Number(valor.value) : 0,
     data_de_inicio: inicio.value,
     vencimento: vencimento.value
   };
 
-  if(editandoId){
-    await client.from("Painel ftv").update(dados).eq("id",editandoId);
-    editandoId=null;
-  } else {
-    await client.from("Painel ftv").insert([dados]);
+  if (!dados.nome || !dados.whatsapp || !dados.plano || !dados.vencimento) {
+    alert("Preencha os campos obrigatórios!");
+    return;
   }
 
+  const { error } = editandoId
+    ? await client.from("Painel ftv").update(dados).eq("id", editandoId)
+    : await client.from("Painel ftv").insert([dados]);
+
+  if (error) {
+    alert("Erro: " + error.message);
+    console.log(error);
+    return;
+  }
+
+  alert("Salvo com sucesso!");
+
+  editandoId = null;
   limpar();
   carregar();
 }
 
 function editar(id){
   editandoId=id;
-  alert("Edite os campos e clique em adicionar para salvar");
+  alert("Edite os campos acima e clique em SALVAR");
 }
 
 async function deletar(id){
-  await client.from("Painel ftv").delete().eq("id",id);
+  await client.from("Painel ftv").delete().eq("id", id);
   carregar();
 }
 
