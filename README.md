@@ -73,7 +73,7 @@ button { background:#2563eb; color:white; cursor:pointer; }
 <input id="nome" placeholder="Nome">
 <input id="whatsapp" placeholder="WhatsApp">
 <input id="plano" placeholder="Plano">
-<input id="valor" placeholder="Valor (ex: 30)">
+<input id="valor" type="number" placeholder="Valor (R$)">
 <input type="date" id="inicio">
 <input type="date" id="vencimento">
 
