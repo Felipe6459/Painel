@@ -73,12 +73,19 @@ Painel IPTV PRO
 
 <button onclick="cobrarTodos()">📲 Cobrar Todos Vencidos</button>
 
-<input id="nome" placeholder="Nome">
+<h3>Cadastro de Cliente</h3>
+
+<input id="nome" placeholder="Nome do Cliente">
 <input id="whatsapp" placeholder="WhatsApp">
-<input id="plano" placeholder="Plano">
-<input id="valor" type="number" placeholder="Valor">
+<input id="plano" placeholder="Plano (ex: 1 tela)">
+<input id="valor" type="number" placeholder="Valor (R$)">
+<br>
+<label>Data de Início:</label>
+<input type="date" id="inicio">
+<label>Vencimento:</label>
 <input type="date" id="vencimento">
 
+<br>
 <button onclick="salvar()">Salvar</button>
 
 <div id="lista"></div>
@@ -137,16 +144,15 @@ async function carregar(){
   dadosClientes = data;
 
   let html="";
-  let receita=0;
 
   data.forEach(c=>{
     let status = statusCalc(c.vencimento);
-    receita += Number(c.valor || 0);
 
     html+=`
     <div class="card ${status}">
       <b>${c.nome}</b>
       <p>${c.plano} - R$ ${c.valor}</p>
+      <p>Início: ${c.data_de_inicio || '-'}</p>
       <p>Vence: ${c.vencimento}</p>
 
       <button class="edit" onclick="editar(${c.id})">Editar</button>
@@ -166,10 +172,22 @@ async function salvar(){
     whatsapp: whatsapp.value,
     plano: plano.value,
     valor: parseFloat(valor.value) || 0,
+    data_de_inicio: inicio.value,
     vencimento: vencimento.value
   }]);
 
+  limpar();
   carregar();
+}
+
+// LIMPAR
+function limpar(){
+  nome.value="";
+  whatsapp.value="";
+  plano.value="";
+  valor.value="";
+  inicio.value="";
+  vencimento.value="";
 }
 
 // EXCLUIR
@@ -178,9 +196,9 @@ async function del(id){
   carregar();
 }
 
-// EDITAR (simples)
+// EDITAR
 function editar(id){
-  alert("Edite manualmente e salve novamente");
+  alert("Edite os dados manualmente e salve novamente");
 }
 
 // COBRAR INDIVIDUAL
@@ -205,15 +223,29 @@ function cobrar(whatsapp, nome, vencimento){
   window.open(`https://wa.me/55${num}?text=${encodeURIComponent(msg)}`);
 }
 
-// COBRAR TODOS VENCIDOS
+// COBRAR TODOS (COM DELAY)
 function cobrarTodos(){
-  dadosClientes.forEach(c=>{
-    let status = statusCalc(c.vencimento);
+  let lista = dadosClientes.filter(c => statusCalc(c.vencimento) === "vencido");
 
-    if(status === "vencido"){
-      cobrar(c.whatsapp, c.nome, c.vencimento);
-    }
-  });
+  if(lista.length === 0){
+    alert("Nenhum cliente vencido");
+    return;
+  }
+
+  let i = 0;
+
+  function enviar(){
+    if(i >= lista.length) return;
+
+    let c = lista[i];
+
+    cobrar(c.whatsapp, c.nome, c.vencimento);
+
+    i++;
+    setTimeout(enviar, 1500);
+  }
+
+  enviar();
 }
 </script>
 
