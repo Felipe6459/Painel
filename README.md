@@ -2,75 +2,55 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Painel IPTV PRO</title>
+<title>Painel IPTV PRO++</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body {
-  margin: 0;
-  font-family: Arial;
-  background: #0f172a;
-  color: white;
-}
+body { margin:0; font-family:Arial; background:#0f172a; color:white; }
+header { background:#1e3a8a; padding:20px; text-align:center; }
 
-header {
-  background: #1e3a8a;
-  padding: 20px;
-  text-align: center;
-  font-size: 22px;
-}
+.container { padding:20px; }
 
-.container {
-  padding: 20px;
-}
-
-.cards {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+.cards { display:flex; flex-wrap:wrap; gap:10px; }
 
 .box {
-  background: #1e293b;
-  padding: 15px;
-  border-radius: 10px;
-  flex: 1;
-  text-align: center;
+  background:#1e293b;
+  padding:15px;
+  border-radius:10px;
+  flex:1;
+  text-align:center;
 }
 
 input, button {
-  padding: 10px;
-  margin: 5px;
-  border-radius: 5px;
-  border: none;
+  padding:10px;
+  margin:5px;
+  border:none;
+  border-radius:5px;
 }
 
-button {
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
-}
+button { background:#2563eb; color:white; }
 
 .card {
-  background: #1e293b;
-  padding: 15px;
-  margin-top: 10px;
-  border-radius: 10px;
+  background:#1e293b;
+  padding:15px;
+  margin-top:10px;
+  border-radius:10px;
 }
 
-.ativo { border-left: 5px solid green; }
-.vencido { border-left: 5px solid red; }
-.aviso { border-left: 5px solid orange; }
+.ativo { border-left:5px solid green; }
+.vencido { border-left:5px solid red; }
+.aviso { border-left:5px solid orange; }
 
-.delete { background: red; }
+.delete { background:red; }
+.edit { background:orange; }
 </style>
 </head>
 
 <body>
 
-<header>Painel IPTV PRO</header>
+<header>Painel IPTV PRO++</header>
 
 <div class="container">
 
@@ -79,26 +59,28 @@ button {
   <div class="box">Ativos<br><span id="ativos">0</span></div>
   <div class="box">Vencendo<br><span id="aviso">0</span></div>
   <div class="box">Vencidos<br><span id="vencidos">0</span></div>
+  <div class="box">💰 Receita Total<br>R$ <span id="receita">0</span></div>
+  <div class="box">📅 A Receber<br>R$ <span id="receber">0</span></div>
 </div>
 
 <canvas id="grafico"></canvas>
 
 <h3>Buscar</h3>
-<input id="busca" placeholder="Digite o nome..." oninput="carregar()">
+<input id="busca" oninput="carregar()" placeholder="Nome...">
 
 <h3>Adicionar Cliente</h3>
 
 <input id="nome" placeholder="Nome">
 <input id="whatsapp" placeholder="WhatsApp">
 <input id="plano" placeholder="Plano">
+<input id="valor" placeholder="Valor (ex: 30)">
 <input type="date" id="inicio">
 <input type="date" id="vencimento">
-<input id="assinatura" placeholder="Assinatura">
 
 <button onclick="adicionar()">Adicionar</button>
 
 <h3>Clientes</h3>
-<div id="lista">Carregando...</div>
+<div id="lista"></div>
 
 </div>
 
@@ -109,11 +91,12 @@ const supabaseKey = "sb_publishable_fsnaUk2uQmlq0d5r7MwFnA_FoO-wYkf";
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
 let chart;
+let editandoId = null;
 
-function calcularStatus(dataVencimento) {
-  const hoje = new Date();
-  const venc = new Date(dataVencimento);
-  const diff = (venc - hoje) / (1000 * 60 * 60 * 24);
+function statusCalc(v) {
+  let hoje = new Date();
+  let d = new Date(v);
+  let diff = (d - hoje) / (1000*60*60*24);
 
   if (diff < 0) return "vencido";
   if (diff <= 3) return "aviso";
@@ -122,108 +105,99 @@ function calcularStatus(dataVencimento) {
 
 async function carregar() {
   const busca = document.getElementById("busca").value.toLowerCase();
+  const { data } = await client.from("Painel ftv").select("*");
 
-  const { data, error } = await client.from("Painel ftv").select("*");
+  let total=0, ativos=0, vencidos=0, aviso=0;
+  let receita=0, receber=0;
+  let planos={};
+  let html="";
 
-  if (error) {
-    document.getElementById("lista").innerHTML = error.message;
-    return;
-  }
-
-  let total = 0, ativos = 0, vencidos = 0, aviso = 0;
-  let planos = {};
-  let html = "";
-
-  data.forEach(c => {
+  data.forEach(c=>{
     if (busca && !c.nome.toLowerCase().includes(busca)) return;
 
-    const status = calcularStatus(c.vencimento);
+    let status = statusCalc(c.vencimento);
 
     total++;
-    if (status === "ativo") ativos++;
-    if (status === "vencido") vencidos++;
-    if (status === "aviso") aviso++;
+    if(status==="ativo") ativos++;
+    if(status==="vencido") vencidos++;
+    if(status==="aviso") aviso++;
 
-    planos[c.plano] = (planos[c.plano] || 0) + 1;
+    receita += Number(c.valor || 0);
 
-    html += `
-      <div class="card ${status}">
-        <p><strong>${c.nome}</strong></p>
-        <p>${c.whatsapp}</p>
-        <p>${c.plano}</p>
-        <p>Vence: ${c.vencimento}</p>
-        <button class="delete" onclick="deletar(${c.id})">Excluir</button>
-      </div>
-    `;
+    if(status!=="vencido") {
+      receber += Number(c.valor || 0);
+    }
+
+    planos[c.plano]=(planos[c.plano]||0)+1;
+
+    html+=`
+    <div class="card ${status}">
+      <p><b>${c.nome}</b></p>
+      <p>${c.whatsapp}</p>
+      <p>${c.plano} - R$ ${c.valor}</p>
+      <p>Vence: ${c.vencimento}</p>
+      <button class="edit" onclick="editar(${c.id})">Editar</button>
+      <button class="delete" onclick="deletar(${c.id})">Excluir</button>
+    </div>`;
   });
 
-  document.getElementById("total").innerText = total;
-  document.getElementById("ativos").innerText = ativos;
-  document.getElementById("vencidos").innerText = vencidos;
-  document.getElementById("aviso").innerText = aviso;
+  document.getElementById("total").innerText=total;
+  document.getElementById("ativos").innerText=ativos;
+  document.getElementById("vencidos").innerText=vencidos;
+  document.getElementById("aviso").innerText=aviso;
+  document.getElementById("receita").innerText=receita.toFixed(2);
+  document.getElementById("receber").innerText=receber.toFixed(2);
 
-  document.getElementById("lista").innerHTML = html;
+  document.getElementById("lista").innerHTML=html;
 
-  if (chart) chart.destroy();
+  if(chart) chart.destroy();
 
-  const ctx = document.getElementById("grafico").getContext("2d");
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: Object.keys(planos),
-      datasets: [{
-        label: 'Planos',
-        data: Object.values(planos)
-      }]
-    }
+  chart=new Chart(document.getElementById("grafico"),{
+    type:"bar",
+    data:{ labels:Object.keys(planos),
+    datasets:[{ data:Object.values(planos)}]}
   });
 }
 
 async function adicionar() {
-  const nome = document.getElementById("nome").value;
-  const whatsapp = document.getElementById("whatsapp").value;
-  const plano = document.getElementById("plano").value;
-  const inicio = document.getElementById("inicio").value;
-  const vencimento = document.getElementById("vencimento").value;
-  const assinatura = document.getElementById("assinatura").value;
+  const dados={
+    id: Date.now(),
+    nome: nome.value,
+    whatsapp: whatsapp.value,
+    plano: plano.value,
+    valor: Number(valor.value),
+    data_de_inicio: inicio.value,
+    vencimento: vencimento.value
+  };
 
-  if (!nome || !whatsapp || !plano || !inicio || !vencimento) {
-    alert("Preencha todos os campos!");
-    return;
+  if(editandoId){
+    await client.from("Painel ftv").update(dados).eq("id",editandoId);
+    editandoId=null;
+  } else {
+    await client.from("Painel ftv").insert([dados]);
   }
 
-  const { error } = await client.from("Painel ftv").insert([{
-    id: Date.now(), // 🔥 CORREÇÃO DO ERRO
-    nome: nome,
-    whatsapp: whatsapp,
-    plano: plano,
-    data_de_inicio: inicio,
-    vencimento: vencimento,
-    status: "ativo",
-    assinatura: assinatura
-  }]);
-
-  if (error) {
-    alert("Erro ao salvar: " + error.message);
-    console.log(error);
-    return;
-  }
-
-  alert("Cliente salvo com sucesso!");
-
-  document.getElementById("nome").value = "";
-  document.getElementById("whatsapp").value = "";
-  document.getElementById("plano").value = "";
-  document.getElementById("inicio").value = "";
-  document.getElementById("vencimento").value = "";
-  document.getElementById("assinatura").value = "";
-
+  limpar();
   carregar();
 }
 
-async function deletar(id) {
-  await client.from("Painel ftv").delete().eq("id", id);
+function editar(id){
+  editandoId=id;
+  alert("Edite os campos e clique em adicionar para salvar");
+}
+
+async function deletar(id){
+  await client.from("Painel ftv").delete().eq("id",id);
   carregar();
+}
+
+function limpar(){
+  nome.value="";
+  whatsapp.value="";
+  plano.value="";
+  valor.value="";
+  inicio.value="";
+  vencimento.value="";
 }
 
 carregar();
