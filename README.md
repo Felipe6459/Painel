@@ -91,8 +91,6 @@ canvas {
 
 <body>
 
-  <h2>Entrar ou Criar Conta</h2>
-
   <input id="email" placeholder="Email">
   <input id="senha" type="password" placeholder="Senha">
 
@@ -213,9 +211,14 @@ const centerTextPlugin={
 
 // CARREGAR
 async function carregar(){
-  const { data } = await client.from("Painel ftv")
-.select("*")
-.eq("user_id", user.id)
+
+  if(!user) return;
+
+  const { data } = await client
+    .from("Painel ftv")
+    .select("*")
+    .eq("user_id", user.id);
+
   dadosClientes = data || [];
 
   let t=0,a=0,v=0,av=0,r=0,rec=0,atr=0;
@@ -401,7 +404,6 @@ function limpar(){
   inicio.value="";
   vencimento.value="";
 }
-  let user = null;
 
 // CRIAR CONTA
 async function criar(){
