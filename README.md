@@ -91,7 +91,6 @@ canvas {
 
 <body>
 
-<div id="auth" class="login">
   <h2>Entrar ou Criar Conta</h2>
 
   <input id="email" placeholder="Email">
@@ -169,14 +168,6 @@ let modoGrafico="clientes";
 let intervaloGrafico;
 
 // LOGIN
-
-function mostrar(){
-  login.style.display="none";
-  painel.style.display="block";
-  carregar();
-}
-
-if(localStorage.getItem("logado")==="sim") mostrar();
 
 // STATUS
 function statusCalc(v){
