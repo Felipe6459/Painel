@@ -100,10 +100,14 @@ canvas {
   <button onclick="login()">Entrar</button>
   <button onclick="criar()">Criar Conta</button>
 </div>
-  <h2>Login</h2>
-  <input id="user" placeholder="Usuário">
-  <input id="pass" type="password" placeholder="Senha">
-  <button onclick="entrar()">Entrar</button>
+  <div id="auth" class="login">
+  <h2>Entrar ou Criar Conta</h2>
+
+  <input id="email" placeholder="Email">
+  <input id="senha" type="password" placeholder="Senha">
+
+  <button onclick="login()">Entrar</button>
+  <button onclick="criar()">Criar Conta</button>
 </div>
 
 <div id="painel" style="display:none">
@@ -165,14 +169,6 @@ let modoGrafico="clientes";
 let intervaloGrafico;
 
 // LOGIN
-    mostrar();
-  } else alert("Login inválido");
-}
-
-function sair(){
-  localStorage.removeItem("logado");
-  location.reload();
-}
 
 function mostrar(){
   login.style.display="none";
@@ -353,14 +349,15 @@ async function salvar(){
     editandoId=null;
   } else {
     await client.from("Painel ftv").insert([{
-      id:Date.now(),
-      nome:nome.value,
-      whatsapp:whatsapp.value,
-      plano:plano.value,
-      valor:parseFloat(valor.value)||0,
-      data_de_inicio:inicio.value,
-      vencimento:vencimento.value
-    }]);user_id: user.id
+  id:Date.now(),
+  nome:nome.value,
+  whatsapp:whatsapp.value,
+  plano:plano.value,
+  valor:parseFloat(valor.value)||0,
+  data_de_inicio:inicio.value,
+  vencimento:vencimento.value,
+  user_id: user.id
+}]);
   }
 
   limpar();
