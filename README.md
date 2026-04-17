@@ -100,6 +100,9 @@ canvas {
   <div id="auth" class="login">
   <h2>Entrar ou Criar Conta</h2>
 
+  <div id="auth" class="login">
+  <h2>Entrar ou Criar Conta</h2>
+
   <input id="email" placeholder="Email">
   <input id="senha" type="password" placeholder="Senha">
 
