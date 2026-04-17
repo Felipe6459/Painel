@@ -76,7 +76,6 @@ canvas {
   margin:20px auto;
   display:block;
   max-width:350px;
-  max-height:350px;
 }
 
 @keyframes piscar {
@@ -91,23 +90,11 @@ canvas {
 
 <body>
 
-  <input id="email" placeholder="Email">
-  <input id="senha" type="password" placeholder="Senha">
-
-  <button onclick="login()">Entrar</button>
-  <button onclick="criar()">Criar Conta</button>
-</div>
-  <div id="auth" class="login">
-  <h2>Entrar ou Criar Conta</h2>
-
-  <div id="auth" class="login">
-  <h2>Entrar ou Criar Conta</h2>
-
-  <input id="email" placeholder="Email">
-  <input id="senha" type="password" placeholder="Senha">
-
-  <button onclick="login()">Entrar</button>
-  <button onclick="criar()">Criar Conta</button>
+<div id="login" class="login">
+  <h2>Login</h2>
+  <input id="user" placeholder="Usuário">
+  <input id="pass" type="password" placeholder="Senha">
+  <button onclick="entrar()">Entrar</button>
 </div>
 
 <div id="painel" style="display:none">
@@ -119,8 +106,17 @@ Painel IPTV PRO MAX
 
 <div class="container">
 
-<div id="alerta" style="display:none; padding:15px; border-radius:10px; text-align:center; margin-bottom:10px; font-weight:bold; animation: piscar 1s infinite;">
+<!-- ALERTAS -->
+<div id="alertaVencido" style="display:none; padding:15px; border-radius:10px; text-align:center; margin-bottom:10px; font-weight:bold; animation: piscar 1s infinite;">
 🚨 EXISTEM CLIENTES VENCIDOS!
+</div>
+
+<div id="alertaHoje" style="display:none; padding:15px; border-radius:10px; text-align:center; margin-bottom:10px; font-weight:bold; background:#f59e0b;">
+⚠️ CLIENTES VENCEM HOJE!
+</div>
+
+<div id="alertaAviso" style="display:none; padding:15px; border-radius:10px; text-align:center; margin-bottom:10px; font-weight:bold; background:#fbbf24;">
+📅 CLIENTES VENCEM EM BREVE!
 </div>
 
 <div class="cards">
@@ -134,6 +130,11 @@ Painel IPTV PRO MAX
 </div>
 
 <canvas id="grafico"></canvas>
+
+<!-- BOTÕES -->
+<button onclick="cobrarVencidos()" style="background:#ef4444;">💰 Cobrar vencidos</button>
+<button onclick="cobrarHoje()" style="background:#f59e0b;">⚠️ Cobrar hoje</button>
+<button onclick="avisarProximos()" style="background:#fbbf24;">📅 Avisar próximos</button>
 
 <h3>Cadastro</h3>
 
@@ -152,23 +153,39 @@ Painel IPTV PRO MAX
 </div>
 </div>
 
-<audio id="alertaSom" src="https://www.soundjay.com/buttons/sounds/beep-01a.mp3"></audio>
-
 <script>
 const client = supabase.createClient(
   "https://nghgqcgsuyyytrpfvfzh.supabase.co",
   "sb_publishable_fsnaUk2uQmlq0d5r7MwFnA_FoO-wYkf"
 );
 
+const USUARIO="admin";
+const SENHA="1234";
+
 let dadosClientes=[];
 let editandoId=null;
 let chart;
-let tocou=false;
-
-let modoGrafico="clientes";
-let intervaloGrafico;
 
 // LOGIN
+function entrar(){
+  if(user.value===USUARIO && pass.value===SENHA){
+    localStorage.setItem("logado","sim");
+    mostrar();
+  } else alert("Login inválido");
+}
+
+function sair(){
+  localStorage.removeItem("logado");
+  location.reload();
+}
+
+function mostrar(){
+  login.style.display="none";
+  painel.style.display="block";
+  carregar();
+}
+
+if(localStorage.getItem("logado")==="sim") mostrar();
 
 // STATUS
 function statusCalc(v){
@@ -181,55 +198,25 @@ function statusCalc(v){
   return "ativo";
 }
 
-// PLUGIN CENTRO
-const centerTextPlugin={
-  id:'centerText',
-  beforeDraw(chart){
-    const {width,height}=chart;
-    const ctx=chart.ctx;
-
-    let total=chart.config.data.datasets[0].data.reduce((a,b)=>a+b,0);
-
-    ctx.save();
-    ctx.font="bold 20px Arial";
-    ctx.fillStyle="#fff";
-    ctx.textAlign="center";
-    ctx.textBaseline="middle";
-
-    if(modoGrafico==="clientes"){
-      ctx.fillText(total,width/2,height/2-5);
-      ctx.font="12px Arial";
-      ctx.fillStyle="#9ca3af";
-      ctx.fillText("Clientes",width/2,height/2+15);
-    } else {
-      ctx.fillText("R$ "+total.toFixed(0),width/2,height/2-5);
-      ctx.font="12px Arial";
-      ctx.fillStyle="#9ca3af";
-      ctx.fillText("Faturamento",width/2,height/2+15);
-    }
-
-    ctx.restore();
-  }
-};
-
 // CARREGAR
 async function carregar(){
-
-  if(!user) return;
-
-  const { data } = await client
-    .from("Painel ftv")
-    .select("*")
-    .eq("user_id", user.id);
-
+  const { data } = await client.from("Painel ftv").select("*");
   dadosClientes = data || [];
 
   let t=0,a=0,v=0,av=0,r=0,rec=0,atr=0;
-  let planosClientes={}, planosValor={};
-  let html="";
+  let planosClientes={}, html="";
+
+  let hoje = new Date();
+  let temVencido=false, venceHoje=false, aviso=false;
 
   dadosClientes.forEach(c=>{
     let status=statusCalc(c.vencimento);
+    let data = new Date(c.vencimento);
+    let diff=Math.ceil((data-hoje)/(1000*60*60*24));
+
+    if(diff<0) temVencido=true;
+    if(diff===0) venceHoje=true;
+    if(diff===1 || diff===2) aviso=true;
 
     t++;
     if(status==="ativo") a++;
@@ -241,7 +228,6 @@ async function carregar(){
     if(status==="vencido") atr+=Number(c.valor||0);
 
     planosClientes[c.plano]=(planosClientes[c.plano]||0)+1;
-    planosValor[c.plano]=(planosValor[c.plano]||0)+Number(c.valor||0);
 
     html+=`
     <div class="card ${status}">
@@ -251,6 +237,7 @@ async function carregar(){
 
       <button onclick="editar(${c.id})">✏️</button>
       <button onclick="pago(${c.id})">✅</button>
+      <button onclick="whats(${c.id})">📲</button>
       <button class="delete" onclick="del(${c.id})">🗑️</button>
     </div>`;
   });
@@ -265,34 +252,17 @@ async function carregar(){
 
   lista.innerHTML=html;
 
-  let temAtraso=dadosClientes.some(c=>statusCalc(c.vencimento)==="vencido");
+  alertaVencido.style.display = temVencido ? "block" : "none";
+  alertaHoje.style.display = venceHoje ? "block" : "none";
+  alertaAviso.style.display = aviso ? "block" : "none";
 
-  if(temAtraso){
-    alerta.style.display="block";
-    if(!tocou){
-      alertaSom.play().catch(()=>{});
-      tocou=true;
-    }
-  } else {
-    alerta.style.display="none";
-    tocou=false;
-  }
-
-  atualizarGrafico(planosClientes, planosValor);
-  iniciarTrocaGrafico(planosClientes, planosValor);
+  atualizarGrafico(planosClientes);
 }
 
 // GRAFICO
-function atualizarGrafico(planosClientes, planosValor){
-  let labels, dados;
-
-  if(modoGrafico==="clientes"){
-    labels=Object.keys(planosClientes);
-    dados=Object.values(planosClientes);
-  } else {
-    labels=Object.keys(planosValor);
-    dados=Object.values(planosValor);
-  }
+function atualizarGrafico(planosClientes){
+  let labels=Object.keys(planosClientes);
+  let dados=Object.values(planosClientes);
 
   if(chart) chart.destroy();
 
@@ -302,103 +272,119 @@ function atualizarGrafico(planosClientes, planosValor){
       labels:labels,
       datasets:[{
         data:dados,
-        backgroundColor:[
-          "#3b82f6","#22c55e","#f59e0b","#ef4444","#a855f7","#06b6d4"
-        ],
-        borderWidth:0
+        backgroundColor:["#3b82f6","#22c55e","#f59e0b","#ef4444"]
       }]
-    },
-    options:{
-      plugins:{
-        legend:{
-          position:"bottom",
-          labels:{color:"#fff"}
-        }
-      },
-      cutout:"75%"
-    },
-    plugins:[centerTextPlugin]
+    }
   });
 }
 
-// TROCA AUTOMÁTICA
-function iniciarTrocaGrafico(planosClientes, planosValor){
-  clearInterval(intervaloGrafico);
+// WHATS
+function whats(id){
+  let c = dadosClientes.find(x => Number(x.id) === Number(id));
+  if(!c) return;
 
-  intervaloGrafico=setInterval(()=>{
-    modoGrafico = modoGrafico==="clientes" ? "valor" : "clientes";
-    atualizarGrafico(planosClientes, planosValor);
-  },4000);
+  let numero = c.whatsapp.replace(/\D/g, "");
+  let status = statusCalc(c.vencimento);
+
+  let msg="";
+  if(status==="vencido") msg=`🚨 ${c.nome}, seu plano está vencido!`;
+  if(status==="aviso") msg=`📅 ${c.nome}, seu plano vence em breve (${c.vencimento})`;
+  if(status==="ativo") msg=`✅ ${c.nome}, seu plano está ativo`;
+
+  window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`);
 }
 
-// SALVAR
+// DISPARO GERAL
+function disparar(lista, tipo){
+  if(lista.length===0) return alert("Nenhum cliente");
+
+  lista.forEach((c,i)=>{
+    let numero=c.whatsapp.replace(/\D/g,"");
+    let msg="";
+
+    if(tipo==="vencido") msg=`🚨 ${c.nome}, plano vencido!`;
+    if(tipo==="hoje") msg=`⚠️ ${c.nome}, vence hoje!`;
+    if(tipo==="aviso") msg=`📅 ${c.nome}, vence em breve!`;
+
+    setTimeout(()=>{
+      window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`);
+    }, i*800);
+  });
+}
+
+// BOTÕES
+function cobrarVencidos(){
+  disparar(dadosClientes.filter(c=>statusCalc(c.vencimento)==="vencido"),"vencido");
+}
+
+function cobrarHoje(){
+  let hoje=new Date();
+  disparar(dadosClientes.filter(c=>{
+    let d=new Date(c.vencimento);
+    return Math.ceil((d-hoje)/(1000*60*60*24))===0;
+  }),"hoje");
+}
+
+function avisarProximos(){
+  let hoje=new Date();
+  disparar(dadosClientes.filter(c=>{
+    let d=new Date(c.vencimento);
+    let diff=Math.ceil((d-hoje)/(1000*60*60*24));
+    return diff===1 || diff===2;
+  }),"aviso");
+}
+
+// CRUD
 async function salvar(){
-  if(editandoId!==null){
+  if(editandoId){
     await client.from("Painel ftv").update({
       nome:nome.value,
       whatsapp:whatsapp.value,
       plano:plano.value,
-      valor:parseFloat(valor.value)||0,
+      valor:valor.value,
       data_de_inicio:inicio.value,
       vencimento:vencimento.value
     }).eq("id",editandoId);
-
     editandoId=null;
   } else {
     await client.from("Painel ftv").insert([{
-  id:Date.now(),
-  nome:nome.value,
-  whatsapp:whatsapp.value,
-  plano:plano.value,
-  valor:parseFloat(valor.value)||0,
-  data_de_inicio:inicio.value,
-  vencimento:vencimento.value,
-  user_id: user.id
-}]);
+      id:Date.now(),
+      nome:nome.value,
+      whatsapp:whatsapp.value,
+      plano:plano.value,
+      valor:valor.value,
+      data_de_inicio:inicio.value,
+      vencimento:vencimento.value
+    }]);
   }
-
   limpar();
   carregar();
 }
 
-// EDITAR
 function editar(id){
-  let c=dadosClientes.find(x=>Number(x.id)===Number(id));
-  if(!c) return;
-
-  nome.value=c.nome||"";
-  whatsapp.value=c.whatsapp||"";
-  plano.value=c.plano||"";
-  valor.value=c.valor||"";
-  inicio.value=c.data_de_inicio||"";
-  vencimento.value=c.vencimento||"";
-
+  let c=dadosClientes.find(x=>x.id==id);
+  nome.value=c.nome;
+  whatsapp.value=c.whatsapp;
+  plano.value=c.plano;
+  valor.value=c.valor;
+  inicio.value=c.data_de_inicio;
+  vencimento.value=c.vencimento;
   editandoId=id;
-  window.scrollTo({top:0,behavior:"smooth"});
 }
 
-// PAGO
 async function pago(id){
-  let c=dadosClientes.find(x=>Number(x.id)===Number(id));
-  if(!c) return;
-
+  let c=dadosClientes.find(x=>x.id==id);
   let nova=new Date(c.vencimento);
   nova.setDate(nova.getDate()+30);
-
-  let formatada=nova.toISOString().split("T")[0];
-
-  await client.from("Painel ftv").update({vencimento:formatada}).eq("id",id);
-
+  await client.from("Painel ftv").update({vencimento:nova.toISOString().split("T")[0]}).eq("id",id);
   carregar();
 }
 
-// EXCLUIR
 async function del(id){
   await client.from("Painel ftv").delete().eq("id",id);
   carregar();
 }
 
-// LIMPAR
 function limpar(){
   nome.value="";
   whatsapp.value="";
@@ -406,54 +392,6 @@ function limpar(){
   valor.value="";
   inicio.value="";
   vencimento.value="";
-}
-
-// CRIAR CONTA
-async function criar(){
-  const { error } = await client.auth.signUp({
-    email: email.value,
-    password: senha.value
-  });
-
-  if(error) return alert(error.message);
-  alert("Conta criada!");
-}
-
-// LOGIN
-async function login(){
-  const { data, error } = await client.auth.signInWithPassword({
-    email: email.value,
-    password: senha.value
-  });
-
-  if(error) return alert(error.message);
-
-  user = data.user;
-  iniciarSistema();
-}
-
-// LOGOUT
-async function sair(){
-  await client.auth.signOut();
-  location.reload();
-}
-
-// AUTO LOGIN
-async function verificarUsuario(){
-  const { data } = await client.auth.getUser();
-
-  if(data.user){
-    user = data.user;
-    iniciarSistema();
-  }
-}
-verificarUsuario();
-
-// INICIAR
-function iniciarSistema(){
-  document.getElementById("auth").style.display = "none";
-  document.getElementById("painel").style.display = "block";
-  carregar();
 }
 </script>
 
