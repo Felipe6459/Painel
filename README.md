@@ -160,7 +160,7 @@ const client = supabase.createClient(
 );
 
 const USUARIO="admin";
-const SENHA="1234";
+const SENHA="78060601@fF";
 
 let dadosClientes=[];
 let editandoId=null;
