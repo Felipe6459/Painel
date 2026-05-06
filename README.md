@@ -154,10 +154,6 @@ Painel IPTV PRO MAX
 </div>
 
 <script>
-const client = supabase.createClient(
-  "https://nghgqcgsuyyytrpfvfzh.supabase.co",
-  "sb_publishable_fsnaUk2uQmlq0d5r7MwFnA_FoO-wYkf"
-);
 
 const USUARIO="admin";
 const SENHA="78060601@fF";
